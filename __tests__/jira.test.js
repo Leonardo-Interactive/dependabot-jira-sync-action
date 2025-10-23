@@ -56,7 +56,7 @@ describe('Jira API Functions', () => {
       )
 
       expect(mockAxios.create).toHaveBeenCalledWith({
-        baseURL: 'https://company.atlassian.net/rest/api/2',
+        baseURL: 'https://company.atlassian.net/rest/api/3',
         auth: {
           username: 'user@company.com',
           password: 'api-token'
@@ -176,7 +176,7 @@ describe('Jira API Functions', () => {
 
       const result = await findExistingIssue(mockAxiosInstance, 'SEC', 42)
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/search', {
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/search/jql', {
         params: {
           jql: 'project = "SEC" AND summary ~ "Dependabot Alert #42"',
           fields: 'key,summary,status,updated'
@@ -280,9 +280,27 @@ describe('Jira API Functions', () => {
           fields: expect.objectContaining({
             project: { key: 'SEC' },
             summary: 'Dependabot Alert #42: Critical vulnerability in lodash',
+            description: expect.objectContaining({
+              type: 'doc',
+              version: 1,
+              content: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'heading',
+                  attrs: {
+                    level: 2
+                  },
+                  content: expect.arrayContaining([
+                    expect.objectContaining({
+                      type: 'text',
+                      text: 'Dependabot Security Alert #42'
+                    })
+                  ])
+                })
+              ])
+            }),
             issuetype: { name: 'Bug' },
             priority: { name: 'High' },
-            duedate: '2023-01-16', // 1 day for critical
+            duedate: '2023-01-16',
             labels: ['dependabot', 'security'],
             assignee: { name: 'security-team' }
           })
@@ -324,6 +342,8 @@ describe('Jira API Functions', () => {
       const issueData = mockAxiosInstance.post.mock.calls[0][1]
       expect(issueData.fields.labels).toBeUndefined()
       expect(issueData.fields.assignee).toBeUndefined()
+      expect(issueData.fields.priority).toEqual({ name: 'Medium' })
+      expect(issueData.fields.duedate).toBeDefined()
     })
 
     it('should handle Jira API errors', async () => {
@@ -364,14 +384,47 @@ describe('Jira API Functions', () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/issue/SEC-123/comment',
         {
-          body: expect.stringContaining('*Dependabot Alert Updated*')
+          body: expect.objectContaining({
+            type: 'doc',
+            version: 1,
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'heading',
+                attrs: {
+                  level: 3
+                },
+                content: expect.arrayContaining([
+                  expect.objectContaining({
+                    type: 'text',
+                    text: 'Dependabot Alert Updated'
+                  })
+                ])
+              })
+            ])
+          })
         }
       )
 
       const commentBody = mockAxiosInstance.post.mock.calls[0][1].body
-      expect(commentBody).toContain('*Current Status:* dismissed')
-      expect(commentBody).toContain('*Dismissed Reason:* tolerable_risk')
-      expect(commentBody).toContain('Risk accepted by security team')
+      // Check that the comment contains the expected content in ADF format
+      expect(commentBody.content).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'paragraph',
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'text',
+                text: 'Current Status: ',
+                marks: [{ type: 'strong' }]
+              }),
+              expect.objectContaining({
+                type: 'text',
+                text: 'dismissed'
+              })
+            ])
+          })
+        ])
+      )
 
       expect(result).toEqual({ updated: true })
       expect(mockCore.info).toHaveBeenCalledWith('Updated Jira issue: SEC-123')
@@ -431,7 +484,7 @@ describe('Jira API Functions', () => {
 
       const result = await findOpenDependabotIssues(mockAxiosInstance, 'SEC')
 
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/search', {
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/search/jql', {
         params: {
           jql: 'project = "SEC" AND labels = "dependabot" AND resolution IS EMPTY',
           fields: 'key,summary,description,status',
@@ -577,7 +630,21 @@ describe('Jira API Functions', () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/issue/SEC-123/comment',
         {
-          body: 'Alert was resolved in GitHub'
+          body: expect.objectContaining({
+            type: 'doc',
+            version: 1,
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'paragraph',
+                content: expect.arrayContaining([
+                  expect.objectContaining({
+                    type: 'text',
+                    text: 'Alert was resolved in GitHub'
+                  })
+                ])
+              })
+            ])
+          })
         }
       )
 

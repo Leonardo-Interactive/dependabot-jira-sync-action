@@ -57839,7 +57839,7 @@ function createJiraClient(jiraUrl, username, apiToken) {
   }
 
   const client = axios.create({
-    baseURL: `${jiraUrl}/rest/api/2`,
+    baseURL: `${jiraUrl}/rest/api/3`,
     auth: {
       username,
       password: apiToken
@@ -57854,12 +57854,21 @@ function createJiraClient(jiraUrl, username, apiToken) {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
-      const message =
-        error.response?.data?.errorMessages?.join(', ') ||
-        error.response?.data?.message ||
-        error.message;
-      coreExports.error(`Jira API Error: ${message}`);
-      throw new Error(`Jira API Error: ${message}`)
+      const status = error.response?.status;
+      const statusText = error.response?.statusText;
+      const errorMessages = error.response?.data?.errorMessages?.join(', ');
+      const message = error.response?.data?.message;
+      const errors = error.response?.data?.errors;
+
+      let errorDetails = `Status: ${status} ${statusText}`;
+      if (errorMessages) errorDetails += ` | Error Messages: ${errorMessages}`;
+      if (message) errorDetails += ` | Message: ${message}`;
+      if (errors) errorDetails += ` | Errors: ${JSON.stringify(errors)}`;
+      if (error.response?.data)
+        errorDetails += ` | Response: ${JSON.stringify(error.response.data)}`;
+
+      coreExports.error(`Jira API Error: ${errorDetails}`);
+      throw new Error(`Jira API Error: ${errorDetails}`)
     }
   );
 
@@ -57912,7 +57921,7 @@ async function findExistingIssue(jiraClient, projectKey, alertId) {
   try {
     const jql = `project = "${sanitizedProjectKey}" AND summary ~ "Dependabot Alert #${sanitizedAlertId}"`;
 
-    const response = await jiraClient.get('/search', {
+    const response = await jiraClient.get('/search/jql', {
       params: {
         jql,
         fields: 'key,summary,status,updated'
@@ -57948,27 +57957,232 @@ async function createJiraIssue(
     alert.createdAt
   );
 
-  const description = `
-*Dependabot Security Alert #${alert.id}*
-
-*Package:* ${alert.package}
-*Ecosystem:* ${alert.ecosystem}
-*Severity:* ${alert.severity.toUpperCase()}
-*Vulnerable Version Range:* ${alert.vulnerableVersionRange}
-*First Patched Version:* ${alert.firstPatchedVersion}
-
-*Description:*
-${alert.description}
-
-${alert.cvss ? `*CVSS Score:* ${alert.cvss}` : ''}
-${alert.cveId ? `*CVE ID:* ${alert.cveId}` : ''}
-${alert.ghsaId ? `*GHSA ID:* ${alert.ghsaId}` : ''}
-
-*GitHub Alert URL:* ${alert.url}
-
----
-_This issue was automatically created by the Dependabot Jira Sync action._
-  `.trim();
+  const description = {
+    type: 'doc',
+    version: 1,
+    content: [
+      {
+        type: 'heading',
+        attrs: {
+          level: 2
+        },
+        content: [
+          {
+            type: 'text',
+            text: `Dependabot Security Alert #${alert.id}`
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Package: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.package
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Ecosystem: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.ecosystem
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Severity: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.severity.toUpperCase()
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Vulnerable Version Range: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.vulnerableVersionRange
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'First Patched Version: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.firstPatchedVersion
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'heading',
+        attrs: {
+          level: 3
+        },
+        content: [
+          {
+            type: 'text',
+            text: 'Description'
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: alert.description
+          }
+        ]
+      },
+      ...(alert.cvss
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'CVSS Score: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.cvss.toString()
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.cveId
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'CVE ID: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.cveId
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.ghsaId
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'GHSA ID: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.ghsaId
+                }
+              ]
+            }
+          ]
+        : []),
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'GitHub Alert URL: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.url,
+            marks: [
+              {
+                type: 'link',
+                attrs: {
+                  href: alert.url
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'rule'
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'This issue was automatically created by the Dependabot Jira Sync action.',
+            marks: [{ type: 'em' }]
+          }
+        ]
+      }
+    ]
+  };
 
   const issueData = {
     fields: {
@@ -58020,20 +58234,161 @@ async function updateJiraIssue(
   alert,
   dryRun = false
 ) {
-  const comment = `
-*Dependabot Alert Updated*
-
-The Dependabot alert #${alert.id} has been updated.
-
-*Current Status:* ${alert.state}
-*Last Updated:* ${new Date(alert.updatedAt).toLocaleString()}
-
-${alert.dismissedAt ? `*Dismissed At:* ${new Date(alert.dismissedAt).toLocaleString()}` : ''}
-${alert.dismissedReason ? `*Dismissed Reason:* ${alert.dismissedReason}` : ''}
-${alert.dismissedComment ? `*Dismissed Comment:* ${alert.dismissedComment}` : ''}
-
-*GitHub Alert URL:* ${alert.url}
-  `.trim();
+  const comment = {
+    type: 'doc',
+    version: 1,
+    content: [
+      {
+        type: 'heading',
+        attrs: {
+          level: 3
+        },
+        content: [
+          {
+            type: 'text',
+            text: 'Dependabot Alert Updated'
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: `The Dependabot alert #${alert.id} has been updated.`
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Current Status: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.state
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Last Updated: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: new Date(alert.updatedAt).toLocaleString()
+          }
+        ]
+      },
+      ...(alert.dismissedAt
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Dismissed At: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: new Date(alert.dismissedAt).toLocaleString()
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.dismissedReason
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Dismissed Reason: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.dismissedReason
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.dismissedComment
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Dismissed Comment: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.dismissedComment
+                }
+              ]
+            }
+          ]
+        : []),
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'GitHub Alert URL: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.url,
+            marks: [
+              {
+                type: 'link',
+                attrs: {
+                  href: alert.url
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  };
 
   if (dryRun) {
     coreExports.info(`[DRY RUN] Would update Jira issue ${issueKey} with comment`);
@@ -58071,7 +58426,7 @@ async function findOpenDependabotIssues(jiraClient, projectKey) {
   coreExports.info(`Searching for open Dependabot issues in project ${projectKey}`);
 
   try {
-    const response = await jiraClient.get('/search', {
+    const response = await jiraClient.get('/search/jql', {
       params: {
         jql,
         fields: 'key,summary,description,status',
@@ -58169,7 +58524,21 @@ async function closeJiraIssue(
     // Add comment first
     if (comment) {
       await jiraClient.post(`/issue/${issueKey}/comment`, {
-        body: comment
+        body: {
+          type: 'doc',
+          version: 1,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: comment
+                }
+              ]
+            }
+          ]
+        }
       });
     }
 
