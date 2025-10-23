@@ -57949,9 +57949,9 @@ async function createJiraIssue(
   alert,
   dryRun = false
 ) {
-  const { projectKey, issueType, priority, labels, assignee } = config;
+  const { projectKey, issueType, labels, assignee } = config;
 
-  const dueDate = calculateDueDate(
+  calculateDueDate(
     alert.severity,
     config.dueDays,
     alert.createdAt
@@ -57984,9 +57984,9 @@ _This issue was automatically created by the Dependabot Jira Sync action._
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
       description,
-      issuetype: { name: issueType },
-      priority: { name: priority },
-      duedate: dueDate
+      issuetype: { name: issueType }
+      // priority: { name: priority },
+      // duedate: dueDate
     }
   };
 
