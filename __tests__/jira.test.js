@@ -285,12 +285,14 @@ describe('Jira API Functions', () => {
               version: 1,
               content: expect.arrayContaining([
                 expect.objectContaining({
-                  type: 'paragraph',
+                  type: 'heading',
+                  attrs: {
+                    level: 2
+                  },
                   content: expect.arrayContaining([
                     expect.objectContaining({
                       type: 'text',
-                      text: 'Dependabot Security Alert #42',
-                      marks: [{ type: 'strong' }]
+                      text: 'Dependabot Security Alert #42'
                     })
                   ])
                 })
@@ -383,12 +385,14 @@ describe('Jira API Functions', () => {
             version: 1,
             content: expect.arrayContaining([
               expect.objectContaining({
-                type: 'paragraph',
+                type: 'heading',
+                attrs: {
+                  level: 3
+                },
                 content: expect.arrayContaining([
                   expect.objectContaining({
                     type: 'text',
-                    text: 'Dependabot Alert Updated',
-                    marks: [{ type: 'strong' }]
+                    text: 'Dependabot Alert Updated'
                   })
                 ])
               })

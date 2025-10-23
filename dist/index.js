@@ -57962,12 +57962,14 @@ async function createJiraIssue(
     version: 1,
     content: [
       {
-        type: 'paragraph',
+        type: 'heading',
+        attrs: {
+          level: 2
+        },
         content: [
           {
             type: 'text',
-            text: `Dependabot Security Alert #${alert.id}`,
-            marks: [{ type: 'strong' }]
+            text: `Dependabot Security Alert #${alert.id}`
           }
         ]
       },
@@ -58050,12 +58052,14 @@ async function createJiraIssue(
         content: []
       },
       {
-        type: 'paragraph',
+        type: 'heading',
+        attrs: {
+          level: 3
+        },
         content: [
           {
             type: 'text',
-            text: 'Description:',
-            marks: [{ type: 'strong' }]
+            text: 'Description'
           }
         ]
       },
@@ -58227,12 +58231,14 @@ async function updateJiraIssue(
     version: 1,
     content: [
       {
-        type: 'paragraph',
+        type: 'heading',
+        attrs: {
+          level: 3
+        },
         content: [
           {
             type: 'text',
-            text: 'Dependabot Alert Updated',
-            marks: [{ type: 'strong' }]
+            text: 'Dependabot Alert Updated'
           }
         ]
       },
