@@ -58152,7 +58152,15 @@ async function createJiraIssue(
           },
           {
             type: 'text',
-            text: alert.url
+            text: alert.url,
+            marks: [
+              {
+                type: 'link',
+                attrs: {
+                  href: alert.url
+                }
+              }
+            ]
           }
         ]
       },
@@ -58367,7 +58375,15 @@ async function updateJiraIssue(
           },
           {
             type: 'text',
-            text: alert.url
+            text: alert.url,
+            marks: [
+              {
+                type: 'link',
+                attrs: {
+                  href: alert.url
+                }
+              }
+            ]
           }
         ]
       }

@@ -357,7 +357,15 @@ export async function createJiraIssue(
           },
           {
             type: 'text',
-            text: alert.url
+            text: alert.url,
+            marks: [
+              {
+                type: 'link',
+                attrs: {
+                  href: alert.url
+                }
+              }
+            ]
           }
         ]
       },
@@ -572,7 +580,15 @@ export async function updateJiraIssue(
           },
           {
             type: 'text',
-            text: alert.url
+            text: alert.url,
+            marks: [
+              {
+                type: 'link',
+                attrs: {
+                  href: alert.url
+                }
+              }
+            ]
           }
         ]
       }
