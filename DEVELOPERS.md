@@ -327,7 +327,7 @@ per_page: 100
 
 ```javascript
 const client = axios.create({
-  baseURL: `${jiraUrl}/rest/api/2`,
+  baseURL: `${jiraUrl}/rest/api/3`,
   auth: {
     username, // Email address
     password: apiToken // API token (not password!)
@@ -341,13 +341,67 @@ const client = axios.create({
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message =
-      error.response?.data?.errorMessages?.join(', ') ||
-      error.response?.data?.message ||
-      error.message
-    throw new Error(`Jira API Error: ${message}`)
+    const status = error.response?.status
+    const statusText = error.response?.statusText
+    const errorMessages = error.response?.data?.errorMessages?.join(', ')
+    const message = error.response?.data?.message
+    const errors = error.response?.data?.errors
+
+    let errorDetails = `Status: ${status} ${statusText}`
+    if (errorMessages) errorDetails += ` | Error Messages: ${errorMessages}`
+    if (message) errorDetails += ` | Message: ${message}`
+    if (errors) errorDetails += ` | Errors: ${JSON.stringify(errors)}`
+
+    throw new Error(`Jira API Error: ${errorDetails}`)
   }
 )
+```
+
+**ADF Formatting:** Issues and comments use Atlassian Document Format for rich
+text:
+
+```javascript
+// Issue descriptions use ADF format with headings and links
+const description = {
+  type: 'doc',
+  version: 1,
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 2 },
+      content: [{ type: 'text', text: 'Dependabot Security Alert #42' }]
+    },
+    {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Package: ', marks: [{ type: 'strong' }] },
+        { type: 'text', text: 'lodash' }
+      ]
+    },
+    {
+      type: 'paragraph',
+      content: [
+        {
+          type: 'text',
+          text: 'GitHub Alert URL: ',
+          marks: [{ type: 'strong' }]
+        },
+        {
+          type: 'text',
+          text: 'https://github.com/company/repo/security/dependabot/42',
+          marks: [
+            {
+              type: 'link',
+              attrs: {
+                href: 'https://github.com/company/repo/security/dependabot/42'
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ## 🧪 Testing Strategy
