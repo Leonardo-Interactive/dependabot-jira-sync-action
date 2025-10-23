@@ -59,12 +59,21 @@ export function createJiraClient(jiraUrl, username, apiToken) {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
-      const message =
-        error.response?.data?.errorMessages?.join(', ') ||
-        error.response?.data?.message ||
-        error.message
-      core.error(`Jira API Error: ${message}`)
-      throw new Error(`Jira API Error: ${message}`)
+      const status = error.response?.status
+      const statusText = error.response?.statusText
+      const errorMessages = error.response?.data?.errorMessages?.join(', ')
+      const message = error.response?.data?.message
+      const errors = error.response?.data?.errors
+
+      let errorDetails = `Status: ${status} ${statusText}`
+      if (errorMessages) errorDetails += ` | Error Messages: ${errorMessages}`
+      if (message) errorDetails += ` | Message: ${message}`
+      if (errors) errorDetails += ` | Errors: ${JSON.stringify(errors)}`
+      if (error.response?.data)
+        errorDetails += ` | Response: ${JSON.stringify(error.response.data)}`
+
+      core.error(`Jira API Error: ${errorDetails}`)
+      throw new Error(`Jira API Error: ${errorDetails}`)
     }
   )
 
@@ -179,21 +188,7 @@ _This issue was automatically created by the Dependabot Jira Sync action._
     fields: {
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
-      description: {
-        type: 'doc',
-        version: 1,
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: description
-              }
-            ]
-          }
-        ]
-      },
+      description: description,
       issuetype: { name: issueType },
       priority: { name: priority },
       duedate: dueDate
@@ -261,21 +256,7 @@ ${alert.dismissedComment ? `*Dismissed Comment:* ${alert.dismissedComment}` : ''
 
   try {
     await jiraClient.post(`/issue/${issueKey}/comment`, {
-      body: {
-        type: 'doc',
-        version: 1,
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: comment
-              }
-            ]
-          }
-        ]
-      }
+      body: comment
     })
 
     core.info(`Updated Jira issue: ${issueKey}`)
@@ -402,21 +383,7 @@ export async function closeJiraIssue(
     // Add comment first
     if (comment) {
       await jiraClient.post(`/issue/${issueKey}/comment`, {
-        body: {
-          type: 'doc',
-          version: 1,
-          content: [
-            {
-              type: 'paragraph',
-              content: [
-                {
-                  type: 'text',
-                  text: comment
-                }
-              ]
-            }
-          ]
-        }
+        body: comment
       })
     }
 
