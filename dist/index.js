@@ -57983,7 +57983,7 @@ _This issue was automatically created by the Dependabot Jira Sync action._
     fields: {
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
-      description: description,
+      description,
       issuetype: { name: issueType },
       priority: { name: priority },
       duedate: dueDate
