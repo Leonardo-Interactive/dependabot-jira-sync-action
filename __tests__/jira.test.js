@@ -299,6 +299,8 @@ describe('Jira API Functions', () => {
               ])
             }),
             issuetype: { name: 'Bug' },
+            priority: { name: 'High' },
+            duedate: '2023-01-16',
             labels: ['dependabot', 'security'],
             assignee: { name: 'security-team' }
           })
@@ -340,6 +342,8 @@ describe('Jira API Functions', () => {
       const issueData = mockAxiosInstance.post.mock.calls[0][1]
       expect(issueData.fields.labels).toBeUndefined()
       expect(issueData.fields.assignee).toBeUndefined()
+      expect(issueData.fields.priority).toEqual({ name: 'Medium' })
+      expect(issueData.fields.duedate).toBeDefined()
     })
 
     it('should handle Jira API errors', async () => {

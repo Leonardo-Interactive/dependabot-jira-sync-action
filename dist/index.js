@@ -57949,9 +57949,9 @@ async function createJiraIssue(
   alert,
   dryRun = false
 ) {
-  const { projectKey, issueType, labels, assignee } = config;
+  const { projectKey, issueType, priority, labels, assignee } = config;
 
-  calculateDueDate(
+  const dueDate = calculateDueDate(
     alert.severity,
     config.dueDays,
     alert.createdAt
@@ -58189,9 +58189,9 @@ async function createJiraIssue(
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
       description,
-      issuetype: { name: issueType }
-      // priority: { name: priority },
-      // duedate: dueDate
+      issuetype: { name: issueType },
+      priority: { name: priority },
+      duedate: dueDate
     }
   };
 

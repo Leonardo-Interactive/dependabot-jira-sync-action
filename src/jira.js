@@ -394,9 +394,9 @@ export async function createJiraIssue(
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
       description,
-      issuetype: { name: issueType }
-      // priority: { name: priority },
-      // duedate: dueDate
+      issuetype: { name: issueType },
+      priority: { name: priority },
+      duedate: dueDate
     }
   }
 
