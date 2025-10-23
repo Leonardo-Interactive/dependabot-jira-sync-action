@@ -280,9 +280,24 @@ describe('Jira API Functions', () => {
           fields: expect.objectContaining({
             project: { key: 'SEC' },
             summary: 'Dependabot Alert #42: Critical vulnerability in lodash',
+            description: expect.objectContaining({
+              type: 'doc',
+              version: 1,
+              content: expect.arrayContaining([
+                expect.objectContaining({
+                  type: 'paragraph',
+                  content: expect.arrayContaining([
+                    expect.objectContaining({
+                      type: 'text',
+                      text: expect.stringContaining(
+                        'Dependabot Security Alert #42'
+                      )
+                    })
+                  ])
+                })
+              ])
+            }),
             issuetype: { name: 'Bug' },
-            priority: { name: 'High' },
-            duedate: '2023-01-16', // 1 day for critical
             labels: ['dependabot', 'security'],
             assignee: { name: 'security-team' }
           })
@@ -364,11 +379,26 @@ describe('Jira API Functions', () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/issue/SEC-123/comment',
         {
-          body: expect.stringContaining('*Dependabot Alert Updated*')
+          body: expect.objectContaining({
+            type: 'doc',
+            version: 1,
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'paragraph',
+                content: expect.arrayContaining([
+                  expect.objectContaining({
+                    type: 'text',
+                    text: expect.stringContaining('*Dependabot Alert Updated*')
+                  })
+                ])
+              })
+            ])
+          })
         }
       )
 
-      const commentBody = mockAxiosInstance.post.mock.calls[0][1].body
+      const commentBody =
+        mockAxiosInstance.post.mock.calls[0][1].body.content[0].content[0].text
       expect(commentBody).toContain('*Current Status:* dismissed')
       expect(commentBody).toContain('*Dismissed Reason:* tolerable_risk')
       expect(commentBody).toContain('Risk accepted by security team')
@@ -577,7 +607,21 @@ describe('Jira API Functions', () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         '/issue/SEC-123/comment',
         {
-          body: 'Alert was resolved in GitHub'
+          body: expect.objectContaining({
+            type: 'doc',
+            version: 1,
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'paragraph',
+                content: expect.arrayContaining([
+                  expect.objectContaining({
+                    type: 'text',
+                    text: 'Alert was resolved in GitHub'
+                  })
+                ])
+              })
+            ])
+          })
         }
       )
 

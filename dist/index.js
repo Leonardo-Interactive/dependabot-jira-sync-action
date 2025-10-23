@@ -57983,7 +57983,21 @@ _This issue was automatically created by the Dependabot Jira Sync action._
     fields: {
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
-      description,
+      description: {
+        type: 'doc',
+        version: 1,
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: description
+              }
+            ]
+          }
+        ]
+      },
       issuetype: { name: issueType }
       // priority: { name: priority },
       // duedate: dueDate
@@ -58051,7 +58065,21 @@ ${alert.dismissedComment ? `*Dismissed Comment:* ${alert.dismissedComment}` : ''
 
   try {
     await jiraClient.post(`/issue/${issueKey}/comment`, {
-      body: comment
+      body: {
+        type: 'doc',
+        version: 1,
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: comment
+              }
+            ]
+          }
+        ]
+      }
     });
 
     coreExports.info(`Updated Jira issue: ${issueKey}`);
@@ -58178,7 +58206,21 @@ async function closeJiraIssue(
     // Add comment first
     if (comment) {
       await jiraClient.post(`/issue/${issueKey}/comment`, {
-        body: comment
+        body: {
+          type: 'doc',
+          version: 1,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: comment
+                }
+              ]
+            }
+          ]
+        }
       });
     }
 
