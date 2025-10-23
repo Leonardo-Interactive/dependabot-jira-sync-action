@@ -44,7 +44,7 @@ export function createJiraClient(jiraUrl, username, apiToken) {
   }
 
   const client = axios.create({
-    baseURL: `${jiraUrl}/rest/api/2`,
+    baseURL: `${jiraUrl}/rest/api/3`,
     auth: {
       username,
       password: apiToken
@@ -117,7 +117,7 @@ export async function findExistingIssue(jiraClient, projectKey, alertId) {
   try {
     const jql = `project = "${sanitizedProjectKey}" AND summary ~ "Dependabot Alert #${sanitizedAlertId}"`
 
-    const response = await jiraClient.get('/search', {
+    const response = await jiraClient.get('/search/jql', {
       params: {
         jql,
         fields: 'key,summary,status,updated'
@@ -179,7 +179,21 @@ _This issue was automatically created by the Dependabot Jira Sync action._
     fields: {
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
-      description,
+      description: {
+        type: 'doc',
+        version: 1,
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: description
+              }
+            ]
+          }
+        ]
+      },
       issuetype: { name: issueType },
       priority: { name: priority },
       duedate: dueDate
@@ -247,7 +261,21 @@ ${alert.dismissedComment ? `*Dismissed Comment:* ${alert.dismissedComment}` : ''
 
   try {
     await jiraClient.post(`/issue/${issueKey}/comment`, {
-      body: comment
+      body: {
+        type: 'doc',
+        version: 1,
+        content: [
+          {
+            type: 'paragraph',
+            content: [
+              {
+                type: 'text',
+                text: comment
+              }
+            ]
+          }
+        ]
+      }
     })
 
     core.info(`Updated Jira issue: ${issueKey}`)
@@ -276,7 +304,7 @@ export async function findOpenDependabotIssues(jiraClient, projectKey) {
   core.info(`Searching for open Dependabot issues in project ${projectKey}`)
 
   try {
-    const response = await jiraClient.get('/search', {
+    const response = await jiraClient.get('/search/jql', {
       params: {
         jql,
         fields: 'key,summary,description,status',
@@ -374,7 +402,21 @@ export async function closeJiraIssue(
     // Add comment first
     if (comment) {
       await jiraClient.post(`/issue/${issueKey}/comment`, {
-        body: comment
+        body: {
+          type: 'doc',
+          version: 1,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: comment
+                }
+              ]
+            }
+          ]
+        }
       })
     }
 
