@@ -162,47 +162,226 @@ export async function createJiraIssue(
     alert.createdAt
   )
 
-  const description = `
-*Dependabot Security Alert #${alert.id}*
-
-*Package:* ${alert.package}
-*Ecosystem:* ${alert.ecosystem}
-*Severity:* ${alert.severity.toUpperCase()}
-*Vulnerable Version Range:* ${alert.vulnerableVersionRange}
-*First Patched Version:* ${alert.firstPatchedVersion}
-
-*Description:*
-${alert.description}
-
-${alert.cvss ? `*CVSS Score:* ${alert.cvss}` : ''}
-${alert.cveId ? `*CVE ID:* ${alert.cveId}` : ''}
-${alert.ghsaId ? `*GHSA ID:* ${alert.ghsaId}` : ''}
-
-*GitHub Alert URL:* ${alert.url}
-
----
-_This issue was automatically created by the Dependabot Jira Sync action._
-  `.trim()
+  const description = {
+    type: 'doc',
+    version: 1,
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: `Dependabot Security Alert #${alert.id}`,
+            marks: [{ type: 'strong' }]
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Package: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.package
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Ecosystem: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.ecosystem
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Severity: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.severity.toUpperCase()
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Vulnerable Version Range: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.vulnerableVersionRange
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'First Patched Version: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.firstPatchedVersion
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Description:',
+            marks: [{ type: 'strong' }]
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: alert.description
+          }
+        ]
+      },
+      ...(alert.cvss
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'CVSS Score: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.cvss.toString()
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.cveId
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'CVE ID: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.cveId
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.ghsaId
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'GHSA ID: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.ghsaId
+                }
+              ]
+            }
+          ]
+        : []),
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'GitHub Alert URL: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.url
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'rule'
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'This issue was automatically created by the Dependabot Jira Sync action.',
+            marks: [{ type: 'em' }]
+          }
+        ]
+      }
+    ]
+  }
 
   const issueData = {
     fields: {
       project: { key: projectKey },
       summary: `Dependabot Alert #${alert.id}: ${alert.title}`,
-      description: {
-        type: 'doc',
-        version: 1,
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: description
-              }
-            ]
-          }
-        ]
-      },
+      description,
       issuetype: { name: issueType }
       // priority: { name: priority },
       // duedate: dueDate
@@ -248,20 +427,151 @@ export async function updateJiraIssue(
   alert,
   dryRun = false
 ) {
-  const comment = `
-*Dependabot Alert Updated*
-
-The Dependabot alert #${alert.id} has been updated.
-
-*Current Status:* ${alert.state}
-*Last Updated:* ${new Date(alert.updatedAt).toLocaleString()}
-
-${alert.dismissedAt ? `*Dismissed At:* ${new Date(alert.dismissedAt).toLocaleString()}` : ''}
-${alert.dismissedReason ? `*Dismissed Reason:* ${alert.dismissedReason}` : ''}
-${alert.dismissedComment ? `*Dismissed Comment:* ${alert.dismissedComment}` : ''}
-
-*GitHub Alert URL:* ${alert.url}
-  `.trim()
+  const comment = {
+    type: 'doc',
+    version: 1,
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Dependabot Alert Updated',
+            marks: [{ type: 'strong' }]
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: `The Dependabot alert #${alert.id} has been updated.`
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Current Status: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.state
+          }
+        ]
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Last Updated: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: new Date(alert.updatedAt).toLocaleString()
+          }
+        ]
+      },
+      ...(alert.dismissedAt
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Dismissed At: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: new Date(alert.dismissedAt).toLocaleString()
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.dismissedReason
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Dismissed Reason: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.dismissedReason
+                }
+              ]
+            }
+          ]
+        : []),
+      ...(alert.dismissedComment
+        ? [
+            {
+              type: 'paragraph',
+              content: []
+            },
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Dismissed Comment: ',
+                  marks: [{ type: 'strong' }]
+                },
+                {
+                  type: 'text',
+                  text: alert.dismissedComment
+                }
+              ]
+            }
+          ]
+        : []),
+      {
+        type: 'paragraph',
+        content: []
+      },
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'GitHub Alert URL: ',
+            marks: [{ type: 'strong' }]
+          },
+          {
+            type: 'text',
+            text: alert.url
+          }
+        ]
+      }
+    ]
+  }
 
   if (dryRun) {
     core.info(`[DRY RUN] Would update Jira issue ${issueKey} with comment`)
@@ -270,21 +580,7 @@ ${alert.dismissedComment ? `*Dismissed Comment:* ${alert.dismissedComment}` : ''
 
   try {
     await jiraClient.post(`/issue/${issueKey}/comment`, {
-      body: {
-        type: 'doc',
-        version: 1,
-        content: [
-          {
-            type: 'paragraph',
-            content: [
-              {
-                type: 'text',
-                text: comment
-              }
-            ]
-          }
-        ]
-      }
+      body: comment
     })
 
     core.info(`Updated Jira issue: ${issueKey}`)

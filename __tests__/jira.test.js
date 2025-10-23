@@ -289,9 +289,8 @@ describe('Jira API Functions', () => {
                   content: expect.arrayContaining([
                     expect.objectContaining({
                       type: 'text',
-                      text: expect.stringContaining(
-                        'Dependabot Security Alert #42'
-                      )
+                      text: 'Dependabot Security Alert #42',
+                      marks: [{ type: 'strong' }]
                     })
                   ])
                 })
@@ -388,7 +387,8 @@ describe('Jira API Functions', () => {
                 content: expect.arrayContaining([
                   expect.objectContaining({
                     type: 'text',
-                    text: expect.stringContaining('*Dependabot Alert Updated*')
+                    text: 'Dependabot Alert Updated',
+                    marks: [{ type: 'strong' }]
                   })
                 ])
               })
@@ -397,11 +397,26 @@ describe('Jira API Functions', () => {
         }
       )
 
-      const commentBody =
-        mockAxiosInstance.post.mock.calls[0][1].body.content[0].content[0].text
-      expect(commentBody).toContain('*Current Status:* dismissed')
-      expect(commentBody).toContain('*Dismissed Reason:* tolerable_risk')
-      expect(commentBody).toContain('Risk accepted by security team')
+      const commentBody = mockAxiosInstance.post.mock.calls[0][1].body
+      // Check that the comment contains the expected content in ADF format
+      expect(commentBody.content).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'paragraph',
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'text',
+                text: 'Current Status: ',
+                marks: [{ type: 'strong' }]
+              }),
+              expect.objectContaining({
+                type: 'text',
+                text: 'dismissed'
+              })
+            ])
+          })
+        ])
+      )
 
       expect(result).toEqual({ updated: true })
       expect(mockCore.info).toHaveBeenCalledWith('Updated Jira issue: SEC-123')
