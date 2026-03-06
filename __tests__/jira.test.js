@@ -15,6 +15,7 @@ const mockCore = {
 const mockAxiosInstance = {
   get: jest.fn(),
   post: jest.fn(),
+  put: jest.fn(),
   interceptors: {
     response: {
       use: jest.fn()
@@ -40,7 +41,11 @@ const {
   updateJiraIssue,
   findOpenDependabotIssues,
   extractAlertIdFromIssue,
-  closeJiraIssue
+  closeJiraIssue,
+  findExistingAdvisoryIssue,
+  createAdvisoryJiraIssue,
+  updateAdvisoryJiraIssue,
+  extractAdvisoryInfoFromIssue
 } = await import('../src/jira.js')
 
 describe('Jira API Functions', () => {
@@ -730,6 +735,363 @@ describe('Jira API Functions', () => {
       expect(mockCore.warning).toHaveBeenCalledWith(
         'Could not extract alert ID from issue SEC-123'
       )
+    })
+  })
+
+  describe('findExistingAdvisoryIssue', () => {
+    it('should find existing advisory issue by GHSA ID', async () => {
+      const mockResponse = {
+        data: {
+          issues: [
+            {
+              key: 'SEC-200',
+              summary:
+                'Advisory GHSA-jf85-cpcp-j695 [#1, #2]: Critical vulnerability',
+              status: { name: 'Open' },
+              updated: '2023-01-01T00:00:00Z'
+            }
+          ]
+        }
+      }
+
+      mockAxiosInstance.get.mockResolvedValue(mockResponse)
+
+      const result = await findExistingAdvisoryIssue(
+        mockAxiosInstance,
+        'SEC',
+        'GHSA-jf85-cpcp-j695'
+      )
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/search/jql', {
+        params: {
+          jql: 'project = "SEC" AND summary ~ "Advisory GHSA-jf85-cpcp-j695"',
+          fields: 'key,summary,status,updated'
+        }
+      })
+
+      expect(result).toEqual(mockResponse.data.issues[0])
+    })
+
+    it('should return null if no advisory issue found', async () => {
+      mockAxiosInstance.get.mockResolvedValue({ data: { issues: [] } })
+
+      const result = await findExistingAdvisoryIssue(
+        mockAxiosInstance,
+        'SEC',
+        'GHSA-xxxx-yyyy-zzzz'
+      )
+
+      expect(result).toBeNull()
+    })
+
+    it('should reject invalid project keys', async () => {
+      await expect(
+        findExistingAdvisoryIssue(
+          mockAxiosInstance,
+          'BAD KEY!',
+          'GHSA-xxxx-yyyy-zzzz'
+        )
+      ).rejects.toThrow('Invalid project key format')
+    })
+
+    it('should reject empty advisory IDs', async () => {
+      await expect(
+        findExistingAdvisoryIssue(mockAxiosInstance, 'SEC', '')
+      ).rejects.toThrow('Invalid advisory ID')
+    })
+
+    it('should surface search errors', async () => {
+      mockAxiosInstance.get.mockRejectedValue(new Error('Search failed'))
+
+      await expect(
+        findExistingAdvisoryIssue(
+          mockAxiosInstance,
+          'SEC',
+          'GHSA-jf85-cpcp-j695'
+        )
+      ).rejects.toThrow('Search failed')
+    })
+  })
+
+  describe('createAdvisoryJiraIssue', () => {
+    const mockConfig = {
+      projectKey: 'SEC',
+      issueType: 'Bug',
+      priority: 'auto',
+      labels: 'dependabot,security',
+      assignee: 'security-team',
+      dueDays: { critical: 1, high: 7, medium: 30, low: 90 }
+    }
+
+    const mockAdvisoryGroup = {
+      isAdvisoryGroup: true,
+      advisoryId: 'GHSA-jf85-cpcp-j695',
+      alertIds: [1, 2],
+      alerts: [
+        {
+          id: 1,
+          package: 'lodash',
+          vulnerableVersionRange: '< 4.17.12',
+          firstPatchedVersion: '4.17.12',
+          url: 'https://github.com/test/alert/1'
+        },
+        {
+          id: 2,
+          package: 'lodash',
+          vulnerableVersionRange: '< 3.10.2',
+          firstPatchedVersion: '3.10.2',
+          url: 'https://github.com/test/alert/2'
+        }
+      ],
+      id: 'GHSA-jf85-cpcp-j695',
+      title: 'Prototype pollution in lodash',
+      description: 'A prototype pollution vulnerability.',
+      severity: 'critical',
+      package: 'lodash',
+      ecosystem: 'npm',
+      cvss: 9.8,
+      cveId: 'CVE-2019-10744',
+      ghsaId: 'GHSA-jf85-cpcp-j695',
+      url: 'https://github.com/test/alert/1',
+      createdAt: '2023-01-09T00:00:00Z'
+    }
+
+    const originalDate = Date
+    beforeAll(() => {
+      global.Date = jest.fn().mockImplementation((dateString) => {
+        if (dateString) {
+          return new originalDate(dateString)
+        }
+        return new originalDate('2023-01-15T10:00:00Z')
+      })
+      global.Date.now = originalDate.now
+      global.Date.UTC = originalDate.UTC
+      global.Date.parse = originalDate.parse
+      global.Date.prototype = originalDate.prototype
+    })
+
+    afterAll(() => {
+      global.Date = originalDate
+    })
+
+    it('should create advisory issue with grouped alert details', async () => {
+      const mockResponse = { data: { key: 'SEC-200' } }
+      mockAxiosInstance.post.mockResolvedValue(mockResponse)
+
+      const result = await createAdvisoryJiraIssue(
+        mockAxiosInstance,
+        mockConfig,
+        mockAdvisoryGroup,
+        false
+      )
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        '/issue',
+        expect.objectContaining({
+          fields: expect.objectContaining({
+            project: { key: 'SEC' },
+            summary:
+              'Advisory GHSA-jf85-cpcp-j695 [#1, #2]: Prototype pollution in lodash',
+            issuetype: { name: 'Bug' },
+            priority: { name: 'Highest' },
+            labels: ['dependabot', 'security'],
+            assignee: { name: 'security-team' }
+          })
+        })
+      )
+
+      expect(result).toEqual({ key: 'SEC-200' })
+    })
+
+    it('should handle dry run mode', async () => {
+      const result = await createAdvisoryJiraIssue(
+        mockAxiosInstance,
+        mockConfig,
+        mockAdvisoryGroup,
+        true
+      )
+
+      expect(mockAxiosInstance.post).not.toHaveBeenCalled()
+      expect(result).toEqual({ key: 'DRY-RUN-KEY', dryRun: true })
+    })
+
+    it('should handle API errors', async () => {
+      mockAxiosInstance.post.mockRejectedValue(new Error('Jira create failed'))
+
+      await expect(
+        createAdvisoryJiraIssue(
+          mockAxiosInstance,
+          mockConfig,
+          mockAdvisoryGroup,
+          false
+        )
+      ).rejects.toThrow('Jira create failed')
+    })
+  })
+
+  describe('updateAdvisoryJiraIssue', () => {
+    const mockAdvisoryGroup = {
+      advisoryId: 'GHSA-jf85-cpcp-j695',
+      alertIds: [1, 2, 3]
+    }
+
+    it('should update summary with new alert IDs and add comment', async () => {
+      mockAxiosInstance.put.mockResolvedValue({})
+      mockAxiosInstance.post.mockResolvedValue({})
+
+      const existingSummary =
+        'Advisory GHSA-jf85-cpcp-j695 [#1, #2]: Prototype pollution'
+
+      const result = await updateAdvisoryJiraIssue(
+        mockAxiosInstance,
+        'SEC-200',
+        existingSummary,
+        mockAdvisoryGroup,
+        false
+      )
+
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith('/issue/SEC-200', {
+        fields: {
+          summary:
+            'Advisory GHSA-jf85-cpcp-j695 [#1, #2, #3]: Prototype pollution'
+        }
+      })
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        '/issue/SEC-200/comment',
+        expect.objectContaining({
+          body: expect.objectContaining({ type: 'doc' })
+        })
+      )
+
+      expect(result).toEqual({ updated: true })
+    })
+
+    it('should not update summary when no new alerts', async () => {
+      mockAxiosInstance.post.mockResolvedValue({})
+
+      const group = { advisoryId: 'GHSA-jf85-cpcp-j695', alertIds: [1, 2] }
+      const existingSummary =
+        'Advisory GHSA-jf85-cpcp-j695 [#1, #2]: Prototype pollution'
+
+      await updateAdvisoryJiraIssue(
+        mockAxiosInstance,
+        'SEC-200',
+        existingSummary,
+        group,
+        false
+      )
+
+      expect(mockAxiosInstance.put).not.toHaveBeenCalled()
+      expect(mockAxiosInstance.post).toHaveBeenCalled()
+    })
+
+    it('should handle dry run mode', async () => {
+      const result = await updateAdvisoryJiraIssue(
+        mockAxiosInstance,
+        'SEC-200',
+        'Advisory GHSA-jf85-cpcp-j695 [#1]: Vuln',
+        mockAdvisoryGroup,
+        true
+      )
+
+      expect(mockAxiosInstance.put).not.toHaveBeenCalled()
+      expect(mockAxiosInstance.post).not.toHaveBeenCalled()
+      expect(result).toEqual({ updated: true, dryRun: true })
+    })
+
+    it('should handle API errors', async () => {
+      mockAxiosInstance.put.mockRejectedValue(new Error('Update failed'))
+
+      await expect(
+        updateAdvisoryJiraIssue(
+          mockAxiosInstance,
+          'SEC-200',
+          'Advisory GHSA-jf85-cpcp-j695 [#1]: Vuln',
+          mockAdvisoryGroup,
+          false
+        )
+      ).rejects.toThrow('Update failed')
+    })
+  })
+
+  describe('extractAdvisoryInfoFromIssue', () => {
+    it('should extract GHSA advisory ID and alert IDs from summary', () => {
+      const issue = {
+        key: 'SEC-200',
+        summary:
+          'Advisory GHSA-jf85-cpcp-j695 [#1, #2, #3]: Critical vulnerability'
+      }
+
+      const result = extractAdvisoryInfoFromIssue(issue)
+
+      expect(result).toEqual({
+        advisoryId: 'GHSA-jf85-cpcp-j695',
+        alertIds: ['1', '2', '3']
+      })
+    })
+
+    it('should extract CVE advisory ID', () => {
+      const issue = {
+        key: 'SEC-201',
+        summary: 'Advisory CVE-2023-1234 [#5, #6]: Some vulnerability'
+      }
+
+      const result = extractAdvisoryInfoFromIssue(issue)
+
+      expect(result).toEqual({
+        advisoryId: 'CVE-2023-1234',
+        alertIds: ['5', '6']
+      })
+    })
+
+    it('should return advisory ID with empty alertIds when no brackets', () => {
+      const issue = {
+        key: 'SEC-202',
+        summary: 'Advisory GHSA-jf85-cpcp-j695: Vulnerability'
+      }
+
+      const result = extractAdvisoryInfoFromIssue(issue)
+
+      expect(result).toEqual({
+        advisoryId: 'GHSA-jf85-cpcp-j695',
+        alertIds: []
+      })
+    })
+
+    it('should return null for non-advisory issues', () => {
+      const issue = {
+        key: 'SEC-100',
+        summary: 'Dependabot Alert #42: Some vulnerability'
+      }
+
+      const result = extractAdvisoryInfoFromIssue(issue)
+
+      expect(result).toBeNull()
+    })
+
+    it('should return null for issues without summary', () => {
+      const issue = { key: 'SEC-100' }
+
+      const result = extractAdvisoryInfoFromIssue(issue)
+
+      expect(result).toBeNull()
+    })
+
+    it('should handle fields.summary format', () => {
+      const issue = {
+        key: 'SEC-200',
+        fields: {
+          summary: 'Advisory GHSA-aaaa-bbbb-cccc [#10]: Vulnerability'
+        }
+      }
+
+      const result = extractAdvisoryInfoFromIssue(issue)
+
+      expect(result).toEqual({
+        advisoryId: 'GHSA-aaaa-bbbb-cccc',
+        alertIds: ['10']
+      })
     })
   })
 
